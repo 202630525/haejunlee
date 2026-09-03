@@ -1,1 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudySync & AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Import the official Google Gen AI Web SDK -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.run/@google/genai"
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
 
+  <!-- Header -->
+  <header class="bg-indigo-600 text-white p-4 shadow-md">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold tracking-wide">StudySync + Gemini</h1>
+      <div class="flex items-center space-x-2">
+        <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key" 
+               class="px-3 py-1 rounded text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        <button id="saveKeyBtn" class="bg-indigo-800 hover:bg-indigo-700 px-3 py-1 rounded text-sm font-semibold transition">
+          Save Key
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto m-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <!-- LEFT COLUMN: Upcoming Plans & Schedule -->
+    <section class="bg-white p-6 rounded-lg shadow space-y-6 flex flex-col justify-between">
+      <div>
+        <h2 class="text-xl font-bold mb-4 text-indigo-900 border-b pb-2">📅 Upcoming Plans</h2>
+        
+        <!-- Add Plan Form -->
+        <form id="planForm" class="space-y-3 mb-6 bg-gray-50 p-4 rounded border">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 uppercase">Title / Project</label>
+            <input type="text" id="planTitle" required placeholder="e.g. History Presentation" 
+                   class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 uppercase">Date</label>
+              <input type="date" id="planDate" required 
+                     class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 uppercase">Category</label>
+              <select id="planCategory" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+                <option value="School Project">School Project</option>
+                <option value="Exam">Exam</option>
+                <option value="Personal">Personal</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded text-sm font-bold hover:bg-indigo-700 transition">
+            Add Event
+          </button>
+        </form>
+
+        <!-- List of Plans -->
+        <div id="planList" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Gemini Project Assistant -->
+    <section class="bg-white p-6 rounded-lg shadow flex flex-col h-[600px]">
+      <h2 class="text-xl font-bold mb-2 text-indigo-900 border-b pb-2">✨ Gemini School Assistant</h2>
+      <p class="text-xs text-gray-500 mb-4">Select a plan or ask a question to generate project ideas, outlines, or research help.</p>
+
+      <!-- Chat Output Container -->
+      <div id="chatBox" class="flex-1 overflow-y-auto bg-gray-50 border rounded p-4 space-y-3 text-sm">
+        <div class="bg-indigo-50 text-indigo-900 p-3 rounded-lg max-w-[85%]">
+          Hello! Add your school projects on the left. You can click <strong>"Prepare with Gemini"</strong> on any item, or ask me directly for project help!
+        </div>
+      </div>
+
+      <!-- Input Form -->
+      <form id="aiForm" class="mt-4 flex space-x-2">
+        <input type="text" id="aiPrompt" placeholder="Ask Gemini for help (e.g. Outline my biology essay)..." 
+               class="flex-1 border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 transition">
+          Send
+        </button>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- JavaScript Application Logic -->
+  <script type="module">
+    import { GoogleGenAI } from "@google/genai";
+
+    // Application State
+    let apiKey = localStorage.getItem("gemini_api_key") || "";
+    let plans = JSON.parse(localStorage.getItem("user_plans")) || [
+      { id: 1, title: "Biology Final Presentation", date: "2026-09-15", category: "School Project" },
+      { id: 2, title: "History Essay on WWI", date: "2026-09-20", category: "School Project" }
+    ];
+
+    // DOM Elements
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    const saveKeyBtn = document.getElementById("saveKeyBtn");
+    const planForm = document.getElementById("planForm");
+    const planList = document.getElementById("planList");
+    const chatBox = document.getElementById("chatBox");
+    const aiForm = document.getElementById("aiForm");
+    const aiPrompt = document.getElementById("aiPrompt");
+
+    if (apiKey) apiKeyInput.value = apiKey;
+
+    // Save API Key
+    saveKeyBtn.addEventListener("click", () => {
+      apiKey = apiKeyInput.value.trim();
+      localStorage.setItem("gemini_api_key", apiKey);
+      alert("API Key Saved!");
+    });
+
+    // Render Plans List
+    function renderPlans() {
+      planList.innerHTML = "";
+      if (plans.length === 0) {
+        planList.innerHTML = `<p class="text-gray-400 text-sm text-center py-4">No upcoming plans. Add one above!</p>`;
+        return;
+      }
+
+      plans.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      plans.forEach(plan => {
+        const daysLeft = Math.ceil((new Date(plan.date) - new Date()) / (1000 * 60 * 60 * 24));
+        const badgeColor = daysLeft <= 3 ? "bg-red-100 text-red-700" : "bg-indigo-100 text-indigo-700";
+
+        const div = document.createElement("div");
+        div.className = "p-3 border rounded-lg flex justify-between items-center bg-white shadow-sm hover:border-indigo-300 transition";
+        div.innerHTML = `
+          <div>
+            <div class="font-bold text-gray-800">${plan.title}</div>
+            <div class="text-xs text-gray-500">📅 ${plan.date} • <span class="font-semibold text-gray-600">${plan.category}</span></div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs px-2 py-1 rounded font-bold ${badgeColor}">
+              ${daysLeft < 0 ? "Past Due" : daysLeft === 0 ? "Today" : daysLeft + "d left"}
+            </span>
+            <button onclick="prepareWithAI('${plan.title}')" class="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded border border-indigo-200">
+              Prepare ✨
+            </button>
+            <button onclick="deletePlan(${plan.id})" class="text-xs text-gray-400 hover:text-red-500 px-1">✕</button>
+          </div>
+        `;
+        planList.appendChild(div);
+      });
+    }
+
+    // Add New Plan
+    planForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const newPlan = {
+        id: Date.now(),
+        title: document.getElementById("planTitle").value,
+        date: document.getElementById("planDate").value,
+        category: document.getElementById("planCategory").value
+      };
+      plans.push(newPlan);
+      localStorage.setItem("user_plans", JSON.stringify(plans));
+      planForm.reset();
+      renderPlans();
+    });
+
+    // Delete Plan
+    window.deletePlan = (id) => {
+      plans = plans.filter(p => p.id !== id);
+      localStorage.setItem("user_plans", JSON.stringify(plans));
+      renderPlans();
+    };
+
+    // Chat Interface Helper
+    function appendMessage(text, isUser = false) {
+      const msg = document.createElement("div");
+      msg.className = isUser 
+        ? "bg-indigo-600 text-white p-3 rounded-lg ml-auto max-w-[85%] text-sm" 
+        : "bg-gray-200 text-gray-800 p-3 rounded-lg mr-auto max-w-[85%] text-sm whitespace-pre-wrap";
+      msg.textContent = text;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return msg;
+    }
+
+    // Call Gemini API using @google/genai SDK
+    async function askGemini(promptText) {
+      if (!apiKey) {
+        alert("Please enter and save your Gemini API Key at the top of the page first.");
+        return;
+      }
+
+      appendMessage(promptText, true);
+      const loadingMsg = appendMessage("Thinking...", false);
+
+      try {
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: promptText,
+          config: {
+            systemInstruction: "You are an expert academic tutor helping a student organize and prepare for school projects, exams, and assignments. Provide clear, structured, and actionable advice."
+          }
+        });
+
+        loadingMsg.textContent = response.text;
+      } catch (error) {
+        loadingMsg.textContent = "Error: Failed to connect to Gemini API. Check your key and network.";
+        console.error(error);
+      }
+    }
+
+    // Trigger AI Prep from Schedule List
+    window.prepareWithAI = (title) => {
+      const prompt = `I have an upcoming school project titled "${title}". Can you give me a step-by-step preparation outline and key research areas to get started?`;
+      askGemini(prompt);
+    };
+
+    // Form Submit Chat Handler
+    aiForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = aiPrompt.value.trim();
+      if (!text) return;
+      aiPrompt.value = "";
+      askGemini(text);
+    });
+
+    // Initialize
+    renderPlans();
+  </script>
+</body>
+</html>
