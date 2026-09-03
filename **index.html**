@@ -1,243 +1,459 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StudySync & AI Assistant</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Import the official Google Gen AI Web SDK -->
-  <script type="importmap">
-    {
-      "imports": {
-        "@google/genai": "https://esm.run/@google/genai"
-      }
-    }
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시간의 틈 - AI 학업 & 수행평가 매니저</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50E3C2;
+            --bg-color: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --text-color: #333333;
+            --accent-color: #FF6B6B;
+            --border-color: #E9ECEF;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding-bottom: 50px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-align: center;
+            padding: 2.5rem 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1rem;
+            opacity: 0.95;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-tag {
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+
+        /* STEP 1: 시간표 스타일 */
+        .timetable {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .timetable th, .timetable td {
+            border: 1px solid var(--border-color);
+            padding: 8px 4px;
+        }
+
+        .timetable th {
+            background-color: #F1F3F5;
+            font-weight: 600;
+        }
+
+        .timetable input {
+            width: 100%;
+            border: none;
+            text-align: center;
+            background: transparent;
+            font-size: 0.85rem;
+            padding: 4px;
+        }
+
+        .timetable input:focus {
+            outline: 2px solid var(--primary-color);
+            background: #F0F7FF;
+            border-radius: 4px;
+        }
+
+        /* 폼 & 공통 버튼 */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        input[type="text"], input[type="date"], input[type="time"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #CED4DA;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #357ABD;
+        }
+
+        /* STEP 2 & 3: 일정 및 알람 리스트 */
+        .todo-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .todo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background-color: #FAFAFA;
+        }
+
+        .todo-info .title {
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        .todo-info .details {
+            font-size: 0.8rem;
+            color: #6C757D;
+        }
+
+        .delete-btn {
+            background-color: var(--accent-color);
+            width: auto;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        .delete-btn:hover {
+            background-color: #E05252;
+        }
+
+        /* STEP 4: AI 챗봇 */
+        .chat-box {
+            height: 220px;
+            border: 1px solid #CED4DA;
+            border-radius: 6px;
+            padding: 12px;
+            overflow-y: auto;
+            background-color: #F8F9FA;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .chat-message.user {
+            text-align: right;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .chat-message.ai {
+            text-align: left;
+            color: #333;
+            background-color: #E9ECEF;
+            padding: 8px 12px;
+            border-radius: 8px;
+            display: inline-block;
+            max-width: 90%;
+        }
+
+        .chat-input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input-group input {
+            flex: 1;
+        }
+
+        .chat-input-group button {
+            width: auto;
+            white-space: nowrap;
+            padding: 0 16px;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
+<body>
 
-  <!-- Header -->
-  <header class="bg-indigo-600 text-white p-4 shadow-md">
-    <div class="max-w-6xl mx-auto flex justify-between items-center">
-      <h1 class="text-2xl font-bold tracking-wide">StudySync + Gemini</h1>
-      <div class="flex items-center space-x-2">
-        <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key" 
-               class="px-3 py-1 rounded text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-        <button id="saveKeyBtn" class="bg-indigo-800 hover:bg-indigo-700 px-3 py-1 rounded text-sm font-semibold transition">
-          Save Key
-        </button>
-      </div>
-    </div>
-  </header>
+    <header>
+        <h1>시간의 틈</h1>
+        <p>시간표 관리부터 수행평가 대비까지, 틈새 시간을 효율적으로 관리하세요</p>
+    </header>
 
-  <!-- Main Container -->
-  <main class="max-w-6xl mx-auto m-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-
-    <!-- LEFT COLUMN: Upcoming Plans & Schedule -->
-    <section class="bg-white p-6 rounded-lg shadow space-y-6 flex flex-col justify-between">
-      <div>
-        <h2 class="text-xl font-bold mb-4 text-indigo-900 border-b pb-2">📅 Upcoming Plans</h2>
+    <div class="container">
         
-        <!-- Add Plan Form -->
-        <form id="planForm" class="space-y-3 mb-6 bg-gray-50 p-4 rounded border">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 uppercase">Title / Project</label>
-            <input type="text" id="planTitle" required placeholder="e.g. History Presentation" 
-                   class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs font-semibold text-gray-600 uppercase">Date</label>
-              <input type="date" id="planDate" required 
-                     class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+        <div class="card full-width">
+            <h2><span class="step-tag">STEP 1</span> 학교 시간표 입력</h2>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">교시별 과목명을 입력 후 [시간표 저장] 버튼을 눌러주세요.</p>
+            <div style="overflow-x: auto;">
+                <table class="timetable">
+                    <thead>
+                        <tr>
+                            <th>교시</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetable-body">
+                        </tbody>
+                </table>
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-600 uppercase">Category</label>
-              <select id="planCategory" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
-                <option value="School Project">School Project</option>
-                <option value="Exam">Exam</option>
-                <option value="Personal">Personal</option>
-              </select>
+            <button style="margin-top: 12px;" onclick="saveTimetable()">시간표 저장하기</button>
+        </div>
+
+        <div class="card">
+            <h2><span class="step-tag">STEP 2 & 3</span> 수행평가 기록 및 알람 설정</h2>
+            <form id="todo-form">
+                <div class="form-group">
+                    <label for="subject">과목 및 수행평가 내용</label>
+                    <input type="text" id="subject" placeholder="예: [국어] 독서 감상문 제출" required>
+                </div>
+                <div class="form-group">
+                    <label for="due-date">날짜</label>
+                    <input type="date" id="due-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="alarm-time">알람 시간</label>
+                    <input type="time" id="alarm-time" required>
+                </div>
+                <button type="submit">일정 추가하기</button>
+            </form>
+
+            <ul class="todo-list" id="todo-list">
+                </ul>
+        </div>
+
+        <div class="card">
+            <h2><span class="step-tag">STEP 4</span> AI 수행평가 대비 보조 툴</h2>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">수행평가 주제나 상세 요구사항을 알려주시면 준비를 도와드립니다.</p>
+            <div class="chat-box" id="chat-box">
+                <div class="chat-message ai">AI: 안녕하세요! 어떤 수행평가를 준비 중이신가요? 과목이나 주제를 말씀해 주세요!</div>
             </div>
-          </div>
-          <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded text-sm font-bold hover:bg-indigo-700 transition">
-            Add Event
-          </button>
-        </form>
-
-        <!-- List of Plans -->
-        <div id="planList" class="space-y-3">
-          <!-- Dynamically populated -->
+            <div class="chat-input-group">
+                <input type="text" id="chat-input" placeholder="예: 과학 탐구 보고서 주제 추천해줘" onkeypress="handleKeyPress(event)">
+                <button onclick="sendChatMessage()">전송</button>
+            </div>
         </div>
-      </div>
-    </section>
 
-    <!-- RIGHT COLUMN: Gemini Project Assistant -->
-    <section class="bg-white p-6 rounded-lg shadow flex flex-col h-[600px]">
-      <h2 class="text-xl font-bold mb-2 text-indigo-900 border-b pb-2">✨ Gemini School Assistant</h2>
-      <p class="text-xs text-gray-500 mb-4">Select a plan or ask a question to generate project ideas, outlines, or research help.</p>
+    </div>
 
-      <!-- Chat Output Container -->
-      <div id="chatBox" class="flex-1 overflow-y-auto bg-gray-50 border rounded p-4 space-y-3 text-sm">
-        <div class="bg-indigo-50 text-indigo-900 p-3 rounded-lg max-w-[85%]">
-          Hello! Add your school projects on the left. You can click <strong>"Prepare with Gemini"</strong> on any item, or ask me directly for project help!
-        </div>
-      </div>
+    <script>
+        const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+        const periods = 7;
 
-      <!-- Input Form -->
-      <form id="aiForm" class="mt-4 flex space-x-2">
-        <input type="text" id="aiPrompt" placeholder="Ask Gemini for help (e.g. Outline my biology essay)..." 
-               class="flex-1 border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
-        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 transition">
-          Send
-        </button>
-      </form>
-    </section>
+        // --- STEP 1: 시간표 로직 ---
+        function initTimetable() {
+            const tbody = document.getElementById('timetable-body');
+            const savedData = JSON.parse(localStorage.getItem('timetable')) || {};
 
-  </main>
+            for (let i = 1; i <= periods; i++) {
+                const tr = document.createElement('tr');
+                let rowHtml = `<td>${i}</td>`;
+                
+                days.forEach(day => {
+                    const cellId = `${day}-${i}`;
+                    const value = savedData[cellId] || '';
+                    rowHtml += `<td><input type="text" id="${cellId}" value="${value}" placeholder="-"></td>`;
+                });
+                
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            }
+        }
 
-  <!-- JavaScript Application Logic -->
-  <script type="module">
-    import { GoogleGenAI } from "@google/genai";
+        function saveTimetable() {
+            const timetableData = {};
+            for (let i = 1; i <= periods; i++) {
+                days.forEach(day => {
+                    const cellId = `${day}-${i}`;
+                    timetableData[cellId] = document.getElementById(cellId).value;
+                });
+            }
+            localStorage.setItem('timetable', JSON.stringify(timetableData));
+            alert('시간표가 저장되었습니다.');
+        }
 
-    // Application State
-    let apiKey = localStorage.getItem("gemini_api_key") || "";
-    let plans = JSON.parse(localStorage.getItem("user_plans")) || [
-      { id: 1, title: "Biology Final Presentation", date: "2026-09-15", category: "School Project" },
-      { id: 2, title: "History Essay on WWI", date: "2026-09-20", category: "School Project" }
-    ];
+        // --- STEP 2 & 3: 수행평가 일정 및 알람 로직 ---
+        const todoForm = document.getElementById('todo-form');
+        const todoList = document.getElementById('todo-list');
+        let todos = JSON.parse(localStorage.getItem('todos')) || [];
 
-    // DOM Elements
-    const apiKeyInput = document.getElementById("apiKeyInput");
-    const saveKeyBtn = document.getElementById("saveKeyBtn");
-    const planForm = document.getElementById("planForm");
-    const planList = document.getElementById("planList");
-    const chatBox = document.getElementById("chatBox");
-    const aiForm = document.getElementById("aiForm");
-    const aiPrompt = document.getElementById("aiPrompt");
+        function renderTodos() {
+            todoList.innerHTML = '';
+            todos.forEach((todo, index) => {
+                const li = document.createElement('li');
+                li.className = 'todo-item';
+                li.innerHTML = `
+                    <div class="todo-info">
+                        <div class="title">${todo.subject}</div>
+                        <div class="details">📅 ${todo.date} | ⏰ ${todo.time}</div>
+                    </div>
+                    <button class="delete-btn" onclick="deleteTodo(${index})">삭제</button>
+                `;
+                todoList.appendChild(li);
+            });
+        }
 
-    if (apiKey) apiKeyInput.value = apiKey;
+        todoForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const subject = document.getElementById('subject').value;
+            const date = document.getElementById('due-date').value;
+            const time = document.getElementById('alarm-time').value;
 
-    // Save API Key
-    saveKeyBtn.addEventListener("click", () => {
-      apiKey = apiKeyInput.value.trim();
-      localStorage.setItem("gemini_api_key", apiKey);
-      alert("API Key Saved!");
-    });
+            todos.push({ subject, date, time, notified: false });
+            localStorage.setItem('todos', JSON.stringify(todos));
+            renderTodos();
 
-    // Render Plans List
-    function renderPlans() {
-      planList.innerHTML = "";
-      if (plans.length === 0) {
-        planList.innerHTML = `<p class="text-gray-400 text-sm text-center py-4">No upcoming plans. Add one above!</p>`;
-        return;
-      }
-
-      plans.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      plans.forEach(plan => {
-        const daysLeft = Math.ceil((new Date(plan.date) - new Date()) / (1000 * 60 * 60 * 24));
-        const badgeColor = daysLeft <= 3 ? "bg-red-100 text-red-700" : "bg-indigo-100 text-indigo-700";
-
-        const div = document.createElement("div");
-        div.className = "p-3 border rounded-lg flex justify-between items-center bg-white shadow-sm hover:border-indigo-300 transition";
-        div.innerHTML = `
-          <div>
-            <div class="font-bold text-gray-800">${plan.title}</div>
-            <div class="text-xs text-gray-500">📅 ${plan.date} • <span class="font-semibold text-gray-600">${plan.category}</span></div>
-          </div>
-          <div class="flex items-center space-x-2">
-            <span class="text-xs px-2 py-1 rounded font-bold ${badgeColor}">
-              ${daysLeft < 0 ? "Past Due" : daysLeft === 0 ? "Today" : daysLeft + "d left"}
-            </span>
-            <button onclick="prepareWithAI('${plan.title}')" class="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded border border-indigo-200">
-              Prepare ✨
-            </button>
-            <button onclick="deletePlan(${plan.id})" class="text-xs text-gray-400 hover:text-red-500 px-1">✕</button>
-          </div>
-        `;
-        planList.appendChild(div);
-      });
-    }
-
-    // Add New Plan
-    planForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const newPlan = {
-        id: Date.now(),
-        title: document.getElementById("planTitle").value,
-        date: document.getElementById("planDate").value,
-        category: document.getElementById("planCategory").value
-      };
-      plans.push(newPlan);
-      localStorage.setItem("user_plans", JSON.stringify(plans));
-      planForm.reset();
-      renderPlans();
-    });
-
-    // Delete Plan
-    window.deletePlan = (id) => {
-      plans = plans.filter(p => p.id !== id);
-      localStorage.setItem("user_plans", JSON.stringify(plans));
-      renderPlans();
-    };
-
-    // Chat Interface Helper
-    function appendMessage(text, isUser = false) {
-      const msg = document.createElement("div");
-      msg.className = isUser 
-        ? "bg-indigo-600 text-white p-3 rounded-lg ml-auto max-w-[85%] text-sm" 
-        : "bg-gray-200 text-gray-800 p-3 rounded-lg mr-auto max-w-[85%] text-sm whitespace-pre-wrap";
-      msg.textContent = text;
-      chatBox.appendChild(msg);
-      chatBox.scrollTop = chatBox.scrollHeight;
-      return msg;
-    }
-
-    // Call Gemini API using @google/genai SDK
-    async function askGemini(promptText) {
-      if (!apiKey) {
-        alert("Please enter and save your Gemini API Key at the top of the page first.");
-        return;
-      }
-
-      appendMessage(promptText, true);
-      const loadingMsg = appendMessage("Thinking...", false);
-
-      try {
-        const ai = new GoogleGenAI({ apiKey: apiKey });
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: promptText,
-          config: {
-            systemInstruction: "You are an expert academic tutor helping a student organize and prepare for school projects, exams, and assignments. Provide clear, structured, and actionable advice."
-          }
+            todoForm.reset();
+            requestNotificationPermission();
         });
 
-        loadingMsg.textContent = response.text;
-      } catch (error) {
-        loadingMsg.textContent = "Error: Failed to connect to Gemini API. Check your key and network.";
-        console.error(error);
-      }
-    }
+        function deleteTodo(index) {
+            todos.splice(index, 1);
+            localStorage.setItem('todos', JSON.stringify(todos));
+            renderTodos();
+        }
 
-    // Trigger AI Prep from Schedule List
-    window.prepareWithAI = (title) => {
-      const prompt = `I have an upcoming school project titled "${title}". Can you give me a step-by-step preparation outline and key research areas to get started?`;
-      askGemini(prompt);
-    };
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+        }
 
-    // Form Submit Chat Handler
-    aiForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const text = aiPrompt.value.trim();
-      if (!text) return;
-      aiPrompt.value = "";
-      askGemini(text);
-    });
+        // 주기적으로 알람 시간 확인 (10초 마다)
+        function checkAlarms() {
+            const now = new Date();
+            const currentDate = now.toISOString().split('T')[0];
+            const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
 
-    // Initialize
-    renderPlans();
-  </script>
+            todos.forEach((todo) => {
+                if (todo.date === currentDate && todo.time === currentTime && !todo.notified) {
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("⏰ 시간의 틈 - 수행평가 알림", {
+                            body: `[${todo.subject}] 준비할 시간입니다!`,
+                        });
+                    } else {
+                        alert(`⏰ [수행평가 알림]\n${todo.subject} 준비할 시간입니다!`);
+                    }
+                    todo.notified = true;
+                    localStorage.setItem('todos', JSON.stringify(todos));
+                }
+            });
+        }
+
+        // --- STEP 4: AI 챗봇 로직 ---
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML += `<div class="chat-message user">나: ${message}</div>`;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // AI 답변 응답 시뮬레이션
+            setTimeout(() => {
+                let aiReply = "수행평가 완성을 위해 핵심 개요부터 작성해보는 것이 좋습니다.";
+                
+                if (message.includes("주제") || message.includes("추천")) {
+                    aiReply = "최근 시사 이슈나 관심 있는 진로 분야와 연결 지어 주제를 선정하면 좋은 평가를 받을 수 있습니다.";
+                } else if (message.includes("역사") || message.includes("국어") || message.includes("과학") || message.includes("영어")) {
+                    aiReply = "해당 과목은 조건표(루브릭)의 출제 의도를 정확히 파악하고 필수 포함 단어를 확인하는 것이 핵심입니다.";
+                } else if (message.includes("보고서") || message.includes("글쓰기")) {
+                    aiReply = "서론(동기)-본론(탐구 내용)-결론(느낀 점 및 배운 점)의 3단 구조로 논리적으로 구성해 보세요.";
+                }
+
+                chatBox.innerHTML += `<div class="chat-message ai">AI: ${aiReply}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 600);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        // 페이지 로드시 실행
+        window.onload = () => {
+            initTimetable();
+            renderTodos();
+            setInterval(checkAlarms, 10000); // 10초마다 알람 조건 체크
+        };
+    </script>
 </body>
 </html>
